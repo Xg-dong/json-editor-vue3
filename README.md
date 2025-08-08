@@ -46,54 +46,31 @@ yarn add json-editor-vue3
 pnpm add json-editor-vue3
 ```
 
-### 📋 在线示例
+### 📋 完整示例
 
-我们提供了多个完整的示例，可以直接运行和测试：
+我们提供了完整的示例项目，可以直接运行和测试：
 
-#### 🎯 真实组件示例 (推荐)
-- **位置**: `examples/vue-app/`
-- **特点**: 完全基于真实的 `JsonEditor.vue` 组件
-- **功能**: 所有组件功能 + 工具函数测试 + 高级特性演示
+#### 🎯 Vue 3 示例项目 (推荐)
+**位置**: `examples/`
+**特点**: 完全基于真实的 `JsonEditor.vue` 组件，模拟真实 npm 包安装体验
 
 ```bash
-# 运行真实组件示例
-cd examples/vue-app
-./start.sh
+# 快速启动示例
+./run-examples.sh
+
+# 或者直接启动
+cd examples
+./start.sh  # Linux/Mac
+start.bat   # Windows
 # 访问 http://localhost:3000
 ```
 
-#### 🌐 浏览器示例
-1. **📖 完整功能演示** - `examples/index.html`
-   - 展示所有组件功能
-   - 实时监控和性能跟踪
-   - 多种预设数据模板
-
-2. **🔧 开发调试工具** - `examples/dev.html`
-   - 高级开发者界面
-   - 详细的 API 调用追踪
-   - 内存使用监控
-
-3. **🐛 本地调试示例** - `examples/debug.html`
-   - 直接使用本地组件源码
-   - 完整的 API 测试覆盖
-   - 详细的日志追踪系统
-
-#### 快速运行浏览器示例
-
-```bash
-# 克隆项目
-git clone https://github.com/your-username/json-editor-vue3.git
-cd json-editor-vue3
-
-# 启动 HTTP 服务器
-chmod +x examples/start.sh
-./examples/start.sh
-
-# 或者手动启动
-cd examples
-python3 -m http.server 8080
-# 然后访问 http://localhost:8080
-```
+**示例页面包括**:
+- **基础示例** (`BasicExample.vue`) - 组件基本使用方法和常用配置
+- **高级示例** (`AdvancedExample.vue`) - 字段路径过滤、只读模式等高级功能
+- **字段操作示例** (`FieldOperationsExample.vue`) - 复杂字段路径操作演示
+- **工具函数示例** (`UtilsExample.vue`) - JsonUtils 工具函数测试
+- **对比示例** (`ComparisonExample.vue`) - 多种配置对比演示
 
 ### 基础使用
 
@@ -360,7 +337,7 @@ const valueDiff = diffValues(obj1, obj2)
 | --- | --- | --- | --- |
 | Chrome 88+ | Firefox 85+ | Safari 14+ | Edge 88+ |
 
-## 💡 示例代码
+## 💡 完整示例代码
 
 ### 表单编辑器
 
@@ -369,16 +346,16 @@ const valueDiff = diffValues(obj1, obj2)
   <div>
     <JsonEditor 
       v-model="formData"
-      :is-new="isNewUser"
-      @change="handleFormChange"
+      :visible-paths="['user.name', 'user.email', 'user.profile.bio']"
+      @update:modelValue="handleFormChange"
     />
-    <button @click="submitForm">提交表单</button>
+    <el-button @click="submitForm">提交表单</el-button>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import JsonEditor from 'json-editor-vue3'
+import { JsonEditor } from 'json-editor-vue3'
 
 const formData = ref({
   user: {
@@ -390,8 +367,6 @@ const formData = ref({
     }
   }
 })
-
-const isNewUser = ref(true)
 
 const handleFormChange = (newData: any) => {
   console.log('表单数据变化:', newData)
@@ -410,17 +385,22 @@ const submitForm = () => {
   <div>
     <JsonEditor 
       v-model="config"
-      :readonly="!canEdit"
-      @change="handleConfigChange"
+      :readonly-paths="['system.id', 'system.version']"
+      :visible-paths-exclude="true"
+      @update:modelValue="handleConfigChange"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { diffValues } from 'json-editor-vue3/utils'
 
 const config = ref({
+  system: {
+    id: 'SYS_001',
+    version: '1.0.0'
+  },
   database: {
     host: 'localhost',
     port: 5432,
@@ -432,11 +412,6 @@ const config = ref({
   }
 })
 
-const canEdit = computed(() => {
-  // 编辑权限逻辑
-  return true
-})
-
 const handleConfigChange = (newConfig: any) => {
   const diff = diffValues(config.value, newConfig)
   console.log('配置变更:', diff.changedPaths)
@@ -444,7 +419,7 @@ const handleConfigChange = (newConfig: any) => {
 </script>
 ```
 
-## � 测试
+## 🧪 测试
 
 ```bash
 # 运行所有测试
@@ -457,244 +432,20 @@ npm run test:coverage
 npm run test:watch
 ```
 
-## �🤝 贡献指南
+## 📚 更多文档
 
-我们欢迎所有形式的贡献！请阅读 [CONTRIBUTING.md](./CONTRIBUTING.md) 了解详细信息。
-
-### 开发设置
-
-```bash
-# 克隆项目
-git clone https://github.com/bx3mdyy/json-editor-vue3.git
-cd json-editor-vue3
-
-# 安装依赖
-npm install
-
-# 启动开发服务器
-npm run dev
-
-# 运行测试
-npm test
-
-# 构建
-npm run build
-```
-
-## � 更多文档
-
-- [API 详细文档](./docs/API.md)
-- [开发指南](./docs/DEVELOPMENT.md)
-- [更新日志](./CHANGELOG.md)
+- [📘 详细使用指南](./USAGE.md) - JsonUtils 工具函数完整文档
+- [🎉 示例项目说明](./EXAMPLES.md) - 完整示例项目使用指南
+- [📋 项目报告](./PROJECT_REPORT.md) - 项目技术细节和状态
+- [📝 更新日志](./CHANGELOG.md)
 
 ## 📄 许可证
 
 [MIT License](./LICENSE)
 
-## �‍♂️ 支持
+## 🙋‍♂️ 支持
 
 如果您有任何问题，请：
-- 创建 [Issue](https://github.com/your-username/json-editor-vue3/issues)
-- 查看 [文档](https://github.com/your-username/json-editor-vue3/wiki)
-- 加入讨论 [Discussions](https://github.com/your-username/json-editor-vue3/discussions)
-
-### 完整的数据处理流程
-
-```typescript
-import {
-  pickFieldsSuper,
-  mergeFieldsSuper,
-  diffValues,
-  generateValueDiffJson
-} from './JsonUtils'
-
-// 原始数据
-const originalData = {
-  user: {
-    id: 1,
-    name: 'Alice',
-    profile: {
-      bio: 'Developer',
-      skills: ['JavaScript', 'Python'],
-      settings: { theme: 'dark', notifications: true }
-    }
-  },
-  metadata: { created: '2023-01-01', version: '1.0' }
-}
-
-// 更新数据
-const updatedData = {
-  user: {
-    id: 1,
-    name: 'Alice Wang',
-    profile: {
-      bio: 'Senior Developer',
-      skills: ['JavaScript', 'Python', 'TypeScript'],
-      settings: { theme: 'light', notifications: true, language: 'en' }
-    }
-  },
-  metadata: { created: '2023-01-01', version: '1.1', lastModified: '2023-12-01' }
-}
-
-// 1. 检测差异
-const diff = diffValues(originalData, updatedData)
-console.log('变化的字段:', diff.changedPaths)
-console.log('新增的字段:', diff.addedPaths)
-console.log('修改的字段:', diff.modifiedPaths)
-
-// 2. 提取用户相关字段
-const userFields = pickFieldsSuper(updatedData, ['user.**'])
-console.log('用户数据:', userFields)
-
-// 3. 只合并技能和主题设置
-const partialMerge = mergeFieldsSuper(originalData, updatedData, [
-  'user.profile.skills',
-  'user.profile.settings.theme'
-])
-console.log('部分合并结果:', partialMerge)
-
-// 4. 生成差异 JSON（只包含修改的字段）
-const modifiedOnly = generateValueDiffJson(originalData, updatedData, 'object', {
-  includeAdded: false,
-  includeRemoved: false,
-  includeModified: true
-})
-console.log('只包含修改的字段:', modifiedOnly)
-```
-
-### 处理复杂嵌套数组
-
-```typescript
-const complexData = {
-  teams: [
-    {
-      name: 'Frontend',
-      members: [
-        { id: 1, name: 'Alice', role: 'Lead' },
-        { id: 2, name: 'Bob', role: 'Developer' }
-      ],
-      projects: [
-        { id: 101, name: 'Website', status: 'active' },
-        { id: 102, name: 'Mobile App', status: 'planning' }
-      ]
-    },
-    {
-      name: 'Backend',
-      members: [
-        { id: 3, name: 'Charlie', role: 'Lead' },
-        { id: 4, name: 'David', role: 'Developer' }
-      ],
-      projects: [
-        { id: 201, name: 'API', status: 'active' }
-      ]
-    }
-  ]
-}
-
-// 提取所有成员的姓名
-const memberNames = pickFieldsSuper(complexData, ['teams[].members[].name'])
-
-// 提取所有项目状态
-const projectStatuses = pickFieldsSuper(complexData, ['teams[].projects[].status'])
-
-// 使用通配符提取所有 ID
-const allIds = pickFieldsSuper(complexData, ['**id'])
-
-// 更新所有活跃项目的状态
-const statusUpdate = { teams: [{ projects: [{ status: 'completed' }] }] }
-const updatedProjects = mergeFieldsSuper(complexData, statusUpdate, ['**status'])
-```
-
-## ⚡ 性能优化
-
-### 大型数据处理
-
-JsonUtils 针对大型数据集进行了优化：
-
-- **路径缓存**: 避免重复路径解析
-- **浅拷贝优化**: 只在必要时进行深拷贝
-- **早期退出**: 在比较过程中尽早确定结果
-- **内存友好**: 避免创建不必要的中间对象
-
-### 性能测试结果
-
-- 1000 个对象的差异比较: ~40ms
-- 复杂嵌套结构提取: ~10ms
-- 通配符路径匹配: ~15ms
-
-### 最佳实践
-
-1. **批量操作**: 一次处理多个路径比多次单独处理更高效
-2. **路径复用**: 缓存解析后的路径数组
-3. **渐进式比较**: 对于大型对象，考虑分批比较
-4. **合理使用通配符**: 精确路径比通配符性能更好
-
-## 🔍 调试和故障排除
-
-### 常见问题
-
-1. **路径格式错误**
-   ```typescript
-   // ❌ 错误
-   pickFieldsSuper(data, ['user.hobbies.0'])
-   
-   // ✅ 正确
-   pickFieldsSuper(data, ['user.hobbies[0]'])
-   ```
-
-2. **通配符使用不当**
-   ```typescript
-   // ❌ 错误：过度使用通配符影响性能
-   pickFieldsSuper(data, ['**'])
-   
-   // ✅ 正确：具体的通配符模式
-   pickFieldsSuper(data, ['users[].profile.**'])
-   ```
-
-3. **响应式对象处理**
-   ```typescript
-   // ❌ 错误：直接比较响应式对象
-   obj1 === obj2
-   
-   // ✅ 正确：使用 isEqual 函数
-   isEqual(obj1, obj2)
-   ```
-
-### 调试技巧
-
-1. **启用警告**: 注意控制台的警告信息，了解哪些字段被忽略
-2. **路径验证**: 使用 `parsePath` 函数验证路径格式
-3. **分步测试**: 先测试简单路径，再逐步增加复杂度
-
-## 📝 更新日志
-
-### v2.0.0 (当前版本)
-- ✨ 新增完整的 diff 功能（路径比较、值差异检测）
-- 🎨 改进路径格式，数组索引用 `[]` 包围
-- 🚀 性能优化，支持大型数据集处理
-- 🔧 增强通配符支持
-- 📚 完善 TypeScript 类型定义
-
-### v1.0.0
-- 🎉 初始版本
-- 📦 基础字段提取和合并功能
-- 🛣️ 支持基本路径格式和通配符
-- 🔗 Vue 响应式对象兼容
-
-## 📄 许可证
-
-本项目采用 MIT 许可证。
-
-## 🤝 贡献指南
-
-欢迎提交 Issue 和 Pull Request！
-
-1. Fork 本仓库
-2. 创建特性分支
-3. 提交更改
-4. 推送到分支
-5. 创建 Pull Request
-
----
-
-**JsonUtils** - 让 JSON 数据处理变得简单而强大！ 🚀
+- 查看 [示例项目](./examples/)
+- 阅读 [详细文档](./USAGE.md)
+- 查看项目 [GitHub 页面](https://github.com/Xg-dong/json-editor-vue3)

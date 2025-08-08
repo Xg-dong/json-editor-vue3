@@ -171,74 +171,8 @@ import { JsonEditor } from 'json-editor-vue3'
 
 ### 贡献
 
-感谢所有为这个项目做出贡献的开发者！
-
-想要贡献代码？请查看我们的 [贡献指南](./CONTRIBUTING.md)。
+本项目由菜鸟东子独自开发和维护。
 
 ### 许可证
 
 本项目采用 [MIT 许可证](./LICENSE)。
-  - 响应式数据绑定
-- 📦 多格式构建输出
-  - CommonJS 格式
-  - ES Module 格式
-  - TypeScript 类型定义
-- 🧪 完整测试覆盖
-  - 单元测试
-  - 集成测试
-  - 性能测试
-  - 边界测试
-- 📚 完整文档
-  - API 参考文档
-  - 使用示例
-  - 开发指南
-- 🔧 开发工具配置
-  - TypeScript 配置
-  - ESLint 规则
-  - Prettier 格式化
-  - Vitest 测试框架
-  - Rollup 构建配置
-- 🚀 CI/CD 流水线
-  - 自动化测试
-  - 代码质量检查
-  - 自动发布到 NPM
-  - GitHub Actions 集成
-
-### 技术亮点
-- 🎯 高性能：支持大型数据集处理
-- 🔧 灵活性：丰富的配置选项
-- 🛡️ 类型安全：完整的 TypeScript 支持
-- 🔄 Vue 兼容：支持 Vue 响应式对象
-- 📐 标准化：遵循语义化版本控制
-- 🧪 可靠性：高测试覆盖率
-
-### 支持的路径格式
-- `a.b.c` - 基础嵌套路径
-- `a[0].b` - 数组索引访问
-- `a[].b` - 数组通配符
-- `**field` - 深度通配符（匹配任意深度的字段）
-- `path.**field` - 特定路径下的深度匹配
-
-### 性能指标
-- 1000个对象差异比较：~40ms
-- 复杂嵌套结构提取：~10ms
-- 通配符路径匹配：~15ms
-- 测试覆盖率：> 90%
-
----
-
-## 版本格式说明
-
-- `新增` - 新功能
-- `变更` - 现有功能的变更
-- `弃用` - 即将移除的功能
-- `移除` - 已移除的功能
-- `修复` - 问题修复
-- `安全` - 安全漏洞修复
-
-## 链接
-
-- [项目主页](https://github.com/bx3mdyy/json-editor)
-- [NPM 包](https://www.npmjs.com/package/@bx3mdyy/json-editor)
-- [问题反馈](https://github.com/bx3mdyy/json-editor/issues)
-- [贡献指南](./CONTRIBUTING.md)

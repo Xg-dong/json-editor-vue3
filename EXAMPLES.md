@@ -1,6 +1,6 @@
 # 🎉 JSON Editor Vue3 完整示例套件
 
-这个项目提供了多种方式来体验和测试 JSON Editor Vue3 组件，包括**真实的 npm 包安装体验**。
+这个项目提供了完整的 JSON Editor Vue3 组件示例，包括**真实的 npm 包安装体验**。
 
 ## 🚀 快速开始 (推荐)
 
@@ -36,9 +36,11 @@ cd examples
 
 ## 📋 示例清单
 
-### 🎯 真实组件示例 (推荐)
+### 🎯 Vue 3 完整示例 (推荐)
 **位置**: `examples/`  
-**技术栈**: Vue 3 + Vite + Element Plus + 自动构建安装  
+**技术栈**: Vue 3 + TypeScript + Vite + Element Plus + 自动构建安装  
+**入口文件**: `examples/index.html`
+
 **特点**:
 - ✅ 完全使用真实的 `JsonEditor.vue` 组件
 - ✅ 模拟真实的 npm 包导入：`import { JsonEditor } from 'json-editor-vue3'`
@@ -46,12 +48,14 @@ cd examples
 - ✅ 集成所有工具函数 (`import { pickFieldsSuper } from 'json-editor-vue3/utils'`)
 - ✅ 完整的高级功能演示（字段路径、只读等）
 - ✅ 实时调试和日志系统
-- ✅ 响应式设计
+- ✅ 响应式设计和路由导航
 
 **启动方式**:
 ```bash
 cd examples
-./start.sh
+./start.sh  # Linux/Mac
+# 或
+start.bat   # Windows
 # 访问 http://localhost:3000
 ```
 
@@ -67,21 +71,34 @@ import { pickFieldsSuper, mergeFieldsSuper } from 'json-editor-vue3/utils'
 import 'json-editor-vue3/JsonEditor.css'
 ```
 
-### 🌐 浏览器示例
-1. **📖 完整功能演示** - `examples/index.html`
-   - 展示所有组件功能
-   - 实时监控和性能跟踪
-   - 多种预设数据模板
+### 📖 示例页面说明
 
-2. **🔧 开发调试工具** - `examples/dev.html`
-   - 高级开发者界面
-   - 详细的 API 调用追踪
-   - 内存使用监控
+示例项目包含以下演示页面（位于 `examples/src/views/`）：
 
-3. **🐛 本地调试示例** - `examples/debug.html`
-   - 直接使用本地组件源码
-   - 完整的 API 测试覆盖
-   - 详细的日志追踪系统
+1. **📖 基础示例** - `BasicExample.vue`
+   - 组件基本使用方法
+   - 常用配置选项演示
+   - 事件处理示例
+
+2. **🔧 高级示例** - `AdvancedExample.vue`
+   - 高级配置和功能
+   - 字段路径过滤
+   - 只读模式和权限控制
+
+3. **⚙️ 字段操作示例** - `FieldOperationsExample.vue`
+   - 字段路径过滤演示
+   - 动态显示/隐藏字段
+   - 复杂嵌套结构处理
+
+4. **🛠️ 工具函数示例** - `UtilsExample.vue`
+   - pickFieldsSuper 函数演示
+   - mergeFieldsSuper 函数测试
+   - 数据处理工具集
+
+5. **📊 对比示例** - `ComparisonExample.vue`
+   - 多种配置对比演示
+   - 性能对比测试
+   - 功能差异展示
 
 ## 🔧 真实组件示例功能
 
@@ -185,18 +202,6 @@ examples/node_modules/json-editor-vue3/
 ├── README.md                 # 文档
 └── LICENSE                   # 许可证
 ```
-
-## 🎯 与传统示例的对比
-
-| 特性 | 真实组件示例 | 传统浏览器示例 |
-|------|-------------|---------------|
-| **导入方式** | `import { JsonEditor } from 'json-editor-vue3'` | 直接引用 dist 文件 |
-| **构建流程** | 自动构建和安装 | 手动构建 |
-| **开发体验** | 完整的 Vue 3 + Vite 体验 | 基础 HTML + JS |
-| **类型支持** | 完整 TypeScript 支持 | 有限支持 |
-| **热重载** | ✅ 支持 | ❌ 不支持 |
-| **调试工具** | Vue DevTools + 完整调试 | 基础调试 |
-| **真实性** | 100% 模拟真实使用 | 演示用途 |
 
 ## 🔄 工作流程建议
 

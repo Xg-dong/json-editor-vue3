@@ -117,4 +117,4 @@ fi
 log_success "🎉 发布完成！"
 log_info "版本: $NEW_VERSION"
 log_info "NPM: https://www.npmjs.com/package/json-editor"
-log_info "GitHub: https://github.com/bx3mdyy/json-editor/releases/tag/$NEW_VERSION"
+log_info "GitHub: https://github.com/Xg-dong/json-editor-vue3/releases/tag/$NEW_VERSION"
