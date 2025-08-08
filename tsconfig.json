@@ -24,6 +24,8 @@
     "allowJs": false,
     "noEmit": false,
     "isolatedModules": true,
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+    "types": ["node"],
+    "typeRoots": ["node_modules/@types", "node_modules/vue/dist"]
   }
 }

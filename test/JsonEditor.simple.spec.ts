@@ -1,14 +1,121 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+
+// Mock Monaco Editor first, before any other imports
+vi.mock('monaco-editor', () => ({
+  editor: {
+    create: vi.fn(() => ({
+      getValue: vi.fn(() => '{}'),
+      setValue: vi.fn(),
+      focus: vi.fn(),
+      layout: vi.fn(),
+      dispose: vi.fn(),
+      setModel: vi.fn(),
+      getModel: vi.fn(() => ({
+        setValue: vi.fn(),
+        getValue: vi.fn(() => '{}'),
+        onDidChangeContent: vi.fn(),
+        updateOptions: vi.fn(),
+        dispose: vi.fn(),
+        getPositionAt: vi.fn(() => ({ lineNumber: 1, column: 1 })),
+      })),
+      updateOptions: vi.fn(),
+      onDidFocusEditorText: vi.fn(() => ({ dispose: vi.fn() })),
+      onDidBlurEditorText: vi.fn(() => ({ dispose: vi.fn() })),
+      onDidChangeModelContent: vi.fn(() => ({ dispose: vi.fn() })),
+      trigger: vi.fn(),
+      getAction: vi.fn(() => ({ run: vi.fn() })),
+      saveViewState: vi.fn(() => ({})),
+      restoreViewState: vi.fn(),
+      createDecorationsCollection: vi.fn(() => ({
+        clear: vi.fn(),
+        set: vi.fn(),
+      })),
+    })),
+    createModel: vi.fn(() => ({
+      setValue: vi.fn(),
+      getValue: vi.fn(() => '{}'),
+      onDidChangeContent: vi.fn(),
+      updateOptions: vi.fn(),
+      dispose: vi.fn(),
+      getPositionAt: vi.fn(() => ({ lineNumber: 1, column: 1 })),
+    })),
+    defineTheme: vi.fn(),
+    setTheme: vi.fn(),
+    onDidCreateEditor: vi.fn(),
+    getModels: vi.fn(() => []),
+    setModelLanguage: vi.fn(),
+    TrackedRangeStickiness: {
+      NeverGrowsWhenTypingAtEdges: 0,
+    },
+  },
+  Range: vi.fn().mockImplementation((startLine, startCol, endLine, endCol) => ({
+    startLineNumber: startLine,
+    startColumn: startCol,
+    endLineNumber: endLine,
+    endColumn: endCol,
+  })),
+  languages: {
+    json: {
+      jsonDefaults: {
+        setDiagnosticsOptions: vi.fn(),
+      },
+    },
+    registerDocumentFormattingEditProvider: vi.fn(),
+    setLanguageConfiguration: vi.fn(),
+  },
+  KeyMod: {
+    CtrlCmd: 1,
+    Shift: 2,
+    Alt: 4,
+    WinCtrl: 8,
+  },
+  KeyCode: {
+    F1: 59,
+    F8: 66,
+    KeyS: 49,
+  },
+}))
+
+// Mock Element Plus
+vi.mock('element-plus', () => ({
+  ElButton: {
+    name: 'ElButton',
+    template: '<button class="el-button" v-bind="$attrs"><slot /></button>',
+    props: ['type', 'icon', 'size'],
+  },
+  ElTooltip: {
+    name: 'ElTooltip',
+    template: '<div class="el-tooltip"><slot /></div>',
+    props: ['content', 'placement'],
+  },
+  ElMessage: {
+    warning: vi.fn(),
+    error: vi.fn(),
+    success: vi.fn(),
+    info: vi.fn(),
+  },
+}))
+
+// Mock Element Plus icons
+vi.mock('@element-plus/icons-vue', () => ({
+  Expand: {
+    name: 'Expand',
+    template: '<svg><path d="expand-path"/></svg>',
+  },
+  Close: {
+    name: 'Close',
+    template: '<svg><path d="close-path"/></svg>',
+  },
+  MagicStick: {
+    name: 'MagicStick',
+    template: '<svg><path d="magic-stick-path"/></svg>',
+  },
+}))
+
+// Now import other modules
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import JsonEditor from '../src/JsonEditor.vue'
-import { createMonacoMock, createElementPlusMock, setupMonacoMock } from './mocks/common'
-
-// Setup Monaco Editor mock
-setupMonacoMock()
-
-// Mock Element Plus
-vi.mock('element-plus', createElementPlusMock)
 
 describe('JsonEditor Vue3 组件测试', () => {
   let wrapper: any
@@ -23,6 +130,18 @@ describe('JsonEditor Vue3 组件测试', () => {
   }
 
   beforeEach(() => {
+    // 模拟浏览器 API
+    global.ResizeObserver = vi.fn().mockImplementation(() => ({
+      observe: vi.fn(),
+      unobserve: vi.fn(),
+      disconnect: vi.fn(),
+    }))
+
+    global.MutationObserver = vi.fn().mockImplementation(() => ({
+      observe: vi.fn(),
+      disconnect: vi.fn(),
+    }))
+
     // 清理 mock 调用历史
     vi.clearAllMocks()
   })
@@ -131,15 +250,14 @@ describe('JsonEditor Vue3 组件测试', () => {
     wrapper = mount(JsonEditor, {
       props: {
         modelValue: {},
-        // theme 不是一个有效的 prop，移除这个测试
+        theme: 'dark',
       },
       global: {
         stubs: globalStubs,
       },
     })
 
-    // 只验证组件正常挂载
-    expect(wrapper.exists()).toBe(true)
+    expect(wrapper.props('theme')).toBe('dark')
   })
 
   it('应该支持全屏模式', async () => {
@@ -185,38 +303,37 @@ describe('JsonEditor Vue3 组件测试', () => {
     })
 
     // 验证 Monaco Editor 相关的初始化
-    // 由于 Monaco Editor 是在 onMounted 中初始化的，这里只验证组件能正常挂载
     expect(wrapper.exists()).toBe(true)
   })
 
-  it('应该支持语言模式切换', () => {
+  it('应该支持高度设置', () => {
     wrapper = mount(JsonEditor, {
       props: {
         modelValue: {},
-        // language 不是一个有效的 prop，移除这个测试
+        height: 400,
       },
       global: {
         stubs: globalStubs,
       },
     })
 
-    // 只验证组件正常挂载
-    expect(wrapper.exists()).toBe(true)
+    expect(wrapper.props('height')).toBe(400)
   })
 
-  it('应该支持自定义选项', () => {
+  it('应该支持自定义配置', () => {
     wrapper = mount(JsonEditor, {
       props: {
         modelValue: {},
-        // options 不是一个有效的 prop，移除这个测试
+        showFormatButton: false,
+        showFullscreenButton: false,
       },
       global: {
         stubs: globalStubs,
       },
     })
 
-    // 只验证组件正常挂载
-    expect(wrapper.exists()).toBe(true)
+    expect(wrapper.props('showFormatButton')).toBe(false)
+    expect(wrapper.props('showFullscreenButton')).toBe(false)
   })
 
   it('应该正确处理组件销毁', () => {

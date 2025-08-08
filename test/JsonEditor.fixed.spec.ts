@@ -82,8 +82,14 @@ const mockElementPlus = {
     template: '<div class="el-tooltip"><slot /></div>',
     props: ['content', 'placement'],
   },
-  FullScreen: 'fullscreen',
-  DocumentCopy: 'document-copy',
+  FullScreen: {
+    name: 'FullScreen',
+    template: '<svg><path d="fullscreen-path"/></svg>',
+  },
+  DocumentCopy: {
+    name: 'DocumentCopy',
+    template: '<svg><path d="document-copy-path"/></svg>',
+  },
 }
 
 describe('JsonEditor 基础功能测试', () => {

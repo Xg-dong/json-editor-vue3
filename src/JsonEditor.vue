@@ -316,7 +316,7 @@ onBeforeUnmount(() => {
 
 watch(
   () => currentTheme.value,
-  val => {
+  (val: string) => {
     monacoTheme.value = val
     if (editor) monaco.editor.setTheme(val)
   }
@@ -324,7 +324,7 @@ watch(
 
 watch(
   () => isReadonly.value,
-  val => editor?.updateOptions({ readOnly: val })
+  (val: boolean) => editor?.updateOptions({ readOnly: val })
 )
 
 watch(
@@ -337,7 +337,7 @@ watch(
 
 watch(
   () => props.modelValue,
-  val => {
+  (val: any) => {
     let value: any
     try {
       value = typeof val === 'string' ? JSON.parse(val) : val

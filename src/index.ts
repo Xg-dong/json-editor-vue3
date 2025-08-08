@@ -32,5 +32,7 @@ export {
 // 导出类型
 export type { JsonItem } from './type'
 
-// Vue 组件需要单独导出，因为可能没有 Vue 环境
-// export { default as JsonEditor } from './JsonEditor.vue'
+// 导出 Vue 组件 - 同时提供默认导出和命名导出
+import JsonEditorComponent from './JsonEditor.vue'
+export { JsonEditorComponent as JsonEditor }
+export default JsonEditorComponent
