@@ -1,0 +1,1217 @@
+import { isRef, unref, isReactive, toRaw } from 'vue'
+import { parseTree, findNodeAtLocation } from 'jsonc-parser'
+import type { Node as JsonNode } from 'jsonc-parser'
+import lodashIsEqual from 'lodash/isEqual.js'
+
+/**
+ * 专门为 JsonEditor 组件设计的字段路径裁剪工具和合并工具
+ *
+ * 支持字段路径格式：
+ * - "a.b.c"
+ * - "a[].b[0].c"
+ * - "arr[].item[].name"
+ * - "**a" - 匹配任意深度的字段 a
+ * - "c[0].**a" - 匹配 c[0] 下任意深度的字段 a
+ *
+ * 功能：
+ * 1. 根据字段路径数组，从输入对象中提取对应字段，支持深度嵌套与数组索引，
+ *    不会改变原始对象，返回一个新对象，未指定字段被丢弃。
+ * 2. 根据字段路径数组，将补丁对象（patch）中指定字段合并回原始对象（origin），
+ *    不改变原始对象，返回合并后的新对象。
+ */
+
+type PlainObject = Record<string, any>
+
+/**
+ * 判断一个值是否为纯对象（即非数组且非null的对象）
+ */
+function isPlainObject(value: unknown): value is PlainObject {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/**
+ * 解析字段路径字符串，支持点分隔符、数组索引、无索引数组标记及 ** 通配符
+ * 例如：
+ *  - "a.b[0].c" 解析为 ["a", "b", 0, "c"]
+ *  - "arr[].item[].name" 解析为 ["arr", null, "item", null, "name"]
+ *  - "**a" 解析为 ["**", "a"]
+ *  - "c[0].**a" 解析为 ["c", 0, "**", "a"]
+ * @param path 字符串形式的字段路径
+ * @returns 解析后的路径数组，数组元素可能是字符串（字段名）、数字（数组索引）、null（无索引数组）或"**"（任意路径通配符）
+ */
+export function parsePath(path: string): (string | number | null)[] {
+  const parts: (string | number | null)[] = []
+
+  // 处理开头的 **
+  if (path.startsWith('**')) {
+    parts.push('**')
+    path = path.slice(2)
+    if (path.startsWith('.')) {
+      path = path.slice(1)
+    }
+  }
+
+  const dotParts = path.split('.')
+
+  dotParts.forEach(part => {
+    // 处理中间的 **
+    if (part === '**') {
+      parts.push('**')
+      return
+    }
+
+    const regex = /([^[\]]+)|\[(\d*|\*)\]/g
+    let match: RegExpExecArray | null
+    while ((match = regex.exec(part))) {
+      if (match[1] !== undefined) {
+        // 检查是否包含 **
+        if (match[1].includes('**')) {
+          const subParts = match[1].split('**')
+          subParts.forEach((subPart, index) => {
+            if (index > 0) parts.push('**')
+            if (subPart) parts.push(subPart)
+          })
+        } else {
+          parts.push(match[1])
+        }
+      } else if (match[2] === '' || match[2] === '*') {
+        parts.push(null)
+      } else if (match[2]) {
+        parts.push(Number(match[2]))
+      }
+    }
+  })
+
+  // 这里把纯数字字符串转成数字（除了 ** 通配符）
+  return parts.map(p => {
+    if (typeof p === 'string' && p !== '**') {
+      const n = Number(p)
+      return isNaN(n) ? p : n
+    }
+    return p
+  })
+}
+
+/**
+ * 检查路径是否匹配，支持 ** 通配符
+ */
+export function isPathMatch(
+  targetPath: (string | number)[],
+  patternPath: (string | number | null)[]
+): boolean {
+  let targetIndex = 0
+  let patternIndex = 0
+
+  while (patternIndex < patternPath.length && targetIndex < targetPath.length) {
+    const pattern = patternPath[patternIndex]
+
+    if (pattern === '**') {
+      // 处理 ** 通配符
+      if (patternIndex === patternPath.length - 1) {
+        // ** 在末尾，匹配剩余所有路径
+        return true
+      }
+
+      const nextPattern = patternPath[patternIndex + 1]
+
+      // 查找下一个匹配点
+      for (let i = targetIndex; i <= targetPath.length; i++) {
+        if (
+          i === targetPath.length ||
+          nextPattern === null ||
+          nextPattern === targetPath[i] ||
+          (typeof nextPattern === 'number' && typeof targetPath[i] === 'number')
+        ) {
+          // 递归检查剩余部分
+          if (isPathMatch(targetPath.slice(i), patternPath.slice(patternIndex + 1))) {
+            return true
+          }
+        }
+      }
+      return false
+    } else if (pattern === null) {
+      // 数组通配符，匹配任意数字索引
+      if (typeof targetPath[targetIndex] === 'number') {
+        targetIndex++
+        patternIndex++
+      } else {
+        return false
+      }
+    } else if (pattern === targetPath[targetIndex]) {
+      // 精确匹配
+      targetIndex++
+      patternIndex++
+    } else {
+      return false
+    }
+  }
+
+  // 检查是否完全匹配
+  return targetIndex === targetPath.length && patternIndex === patternPath.length
+}
+
+/**
+ * 收集所有匹配指定模式的路径
+ * @param obj 目标对象
+ * @param patternPath 模式路径
+ * @param currentPath 当前路径
+ * @returns 匹配的路径数组
+ */
+function collectMatchingPaths(
+  obj: any,
+  patternPath: (string | number | null)[],
+  currentPath: (string | number)[] = []
+): (string | number)[][] {
+  const results: (string | number)[][] = []
+
+  // 检查当前路径是否匹配
+  if (isPathMatch(currentPath, patternPath)) {
+    results.push([...currentPath])
+  }
+
+  if (obj === null || obj === undefined || typeof obj !== 'object') {
+    return results
+  }
+
+  if (Array.isArray(obj)) {
+    obj.forEach((item, index) => {
+      results.push(...collectMatchingPaths(item, patternPath, [...currentPath, index]))
+    })
+  } else if (isPlainObject(obj)) {
+    Object.keys(obj).forEach(key => {
+      results.push(...collectMatchingPaths(obj[key], patternPath, [...currentPath, key]))
+    })
+  }
+
+  return results
+}
+
+/**
+ * 递归裁剪对象，只保留指定字段路径的数据，支持 ** 通配符
+ */
+function pickFieldsDeep(input: any, paths: (string | number | null)[][], depth = 0): any {
+  if (input === null || input === undefined) return input
+
+  // 首先处理包含 ** 通配符的路径
+  const wildcardPaths = paths.filter(path => path.includes('**'))
+  const normalPaths = paths.filter(path => !path.includes('**'))
+
+  // 如果有通配符路径，收集所有匹配的具体路径
+  let expandedPaths: (string | number | null)[][] = [...normalPaths]
+
+  wildcardPaths.forEach(wildcardPath => {
+    const matchingPaths = collectMatchingPaths(input, wildcardPath)
+    expandedPaths.push(...matchingPaths)
+  })
+
+  if (Array.isArray(input)) {
+    const arrayPaths = expandedPaths
+      .map(p => p[depth])
+      .filter(p => p === null || typeof p === 'number')
+    if (arrayPaths.length === 0) return []
+
+    const results: any[] = []
+
+    input.forEach((item, idx) => {
+      const matchedPaths = expandedPaths.filter(p => {
+        const key = p[depth]
+        return key === null || key === idx
+      })
+      const picked = pickFieldsDeep(item, matchedPaths, depth + 1)
+      if (
+        picked !== undefined &&
+        (typeof picked !== 'object' || Object.keys(picked).length > 0 || Array.isArray(picked))
+      ) {
+        results.push(picked)
+      }
+    })
+
+    return results
+  }
+
+  if (isPlainObject(input)) {
+    const result: PlainObject = {}
+
+    const keysAtThisDepth = new Set<string>()
+    expandedPaths.forEach(p => {
+      const key = p[depth]
+      if (typeof key === 'string') keysAtThisDepth.add(key)
+    })
+
+    keysAtThisDepth.forEach(key => {
+      const childPaths = expandedPaths
+        .filter(p => p[depth] === key)
+        .map(p => p.slice(depth + 1))
+        .filter(p => p.length > 0)
+
+      if (childPaths.length === 0) {
+        if (key in input) result[key] = input[key]
+      } else {
+        if (key in input) {
+          const pickedChild = pickFieldsDeep(input[key], childPaths, 0)
+          if (
+            pickedChild !== undefined &&
+            (typeof pickedChild !== 'object' ||
+              Object.keys(pickedChild).length > 0 ||
+              Array.isArray(pickedChild))
+          ) {
+            result[key] = pickedChild
+          }
+        }
+      }
+    })
+
+    return result
+  }
+
+  return undefined
+}
+
+/**
+ * 递归剔除对象中指定字段路径的数据，支持 ** 通配符
+ */
+function omitFieldsDeep(input: any, paths: (string | number | null)[][], depth = 0): any {
+  if (input === null || input === undefined) return input
+
+  // 处理通配符路径
+  const wildcardPaths = paths.filter(path => path.includes('**'))
+  const normalPaths = paths.filter(path => !path.includes('**'))
+
+  let expandedPaths: (string | number | null)[][] = [...normalPaths]
+
+  wildcardPaths.forEach(wildcardPath => {
+    const matchingPaths = collectMatchingPaths(input, wildcardPath)
+    expandedPaths.push(...matchingPaths)
+  })
+
+  if (Array.isArray(input)) {
+    const arrayPaths = expandedPaths
+      .map(p => p[depth])
+      .filter(p => p === null || typeof p === 'number')
+    if (arrayPaths.length === 0) return deepClone(input)
+
+    const results: any[] = []
+
+    input.forEach((item, idx) => {
+      const matchedPaths = expandedPaths.filter(p => {
+        const key = p[depth]
+        return key === null || key === idx
+      })
+      results.push(omitFieldsDeep(item, matchedPaths, depth + 1))
+    })
+
+    return results
+  }
+
+  if (isPlainObject(input)) {
+    const result: PlainObject = {}
+
+    for (const key in input) {
+      const matchedPaths = expandedPaths.filter(p => p[depth] === key)
+
+      if (matchedPaths.length === 0) {
+        result[key] = input[key]
+      } else {
+        const childPaths = matchedPaths.map(p => p.slice(depth + 1))
+        if (childPaths.some(p => p.length === 0)) {
+          continue
+        } else {
+          result[key] = omitFieldsDeep(input[key], childPaths, 0)
+        }
+      }
+    }
+
+    return result
+  }
+
+  return input
+}
+
+/**
+ * 裁剪对象字段的统一接口，支持保留或剔除指定字段路径
+ * @param input 输入对象或数组
+ * @param pathStrings 字段路径字符串数组
+ * @param exclude: boolean 是否剔除指定字段，true为剔除，false或未传为保留
+ * @returns 新对象，根据exclude决定保留或剔除pathStrings指定的字段
+ */
+export function pickFieldsSuper(input: any, pathStrings: string[], exclude?: boolean): any {
+  if (!input || typeof input !== 'object') return input
+  const parsedPaths = pathStrings.map(parsePath)
+  if (exclude) {
+    return omitFieldsDeep(input, parsedPaths, 0)
+  } else {
+    return pickFieldsDeep(input, parsedPaths, 0)
+  }
+}
+
+/**
+ * 深度合并对象，只合并指定路径的字段,目标对像没有的会合并
+ */
+export function mergeFieldsDeep(
+  origin: any,
+  patch: any,
+  includePaths: (string | number | null)[][],
+  currentPath: (string | number)[] = []
+): any {
+  // 检查当前路径是否应该被处理
+  const shouldProcessCurrentPath = (path: (string | number)[]) => {
+    return includePaths.some(includePath => {
+      // 对于通配符路径，使用 isPathMatch 检查
+      if (includePath.includes('**')) {
+        return isPathMatch(path, includePath)
+      }
+      // 对于普通路径，检查是否是前缀匹配
+      return (
+        includePath.length >= path.length &&
+        path.every(
+          (seg, i) =>
+            includePath[i] === null ||
+            includePath[i] === seg ||
+            (includePath[i] === null && typeof seg === 'number')
+        )
+      )
+    })
+  }
+
+  // 检查是否需要继续深入处理
+  const shouldProcessDeeper = (path: (string | number)[]) => {
+    return includePaths.some(includePath => {
+      // 对于通配符路径，如果当前路径可能匹配，就继续深入
+      if (includePath.includes('**')) {
+        // 如果路径中有 **，我们需要继续深入查找可能的匹配
+        return true
+      }
+      // 对于普通路径，检查是否需要继续深入
+      return (
+        includePath.length > path.length &&
+        path.every(
+          (seg, i) =>
+            includePath[i] === null ||
+            includePath[i] === seg ||
+            (includePath[i] === null && typeof seg === 'number')
+        )
+      )
+    })
+  }
+
+  // 1. 基础类型处理
+  if (origin === null || origin === undefined || typeof origin !== 'object') {
+    const isIncluded = shouldProcessCurrentPath(currentPath)
+
+    if (isIncluded) {
+      return patch !== undefined ? patch : origin
+    }
+
+    // 非包含路径但有修改：发出警告并保留原始值
+    if (patch !== undefined && !isEqual(origin, patch)) {
+      const pathStr = currentPath.join('.') || '<root>'
+      console.warn(`Warning: Field "${pathStr}" is not included but modified. Original value kept.`)
+      return origin
+    }
+    return patch !== undefined ? patch : origin
+  }
+
+  // 2. 数组处理
+  if (Array.isArray(origin)) {
+    const result = origin.slice()
+
+    // 处理每个数组元素
+    for (let i = 0; i < result.length; i++) {
+      const elementPath = [...currentPath, i]
+
+      if (shouldProcessDeeper(elementPath) || shouldProcessCurrentPath(elementPath)) {
+        const patchElement = Array.isArray(patch) ? patch[i] : undefined
+        result[i] = mergeFieldsDeep(result[i], patchElement, includePaths, elementPath)
+      } else if (Array.isArray(patch) && i < patch.length && !isEqual(result[i], patch[i])) {
+        const pathStr = elementPath.join('.')
+        console.warn(
+          `Warning: Field "${pathStr}" is not included but modified. Original value kept.`
+        )
+      }
+    }
+
+    // 处理新增数组元素
+    if (Array.isArray(patch) && patch.length > origin.length) {
+      for (let i = origin.length; i < patch.length; i++) {
+        result.push(patch[i])
+      }
+    }
+
+    return result
+  }
+
+  // 3. 普通对象处理
+  if (isPlainObject(origin)) {
+    const result: Record<string, any> = { ...origin }
+
+    // 处理原始对象中的每个键
+    for (const key in origin) {
+      const keyPath = [...currentPath, key]
+
+      if (shouldProcessDeeper(keyPath) || shouldProcessCurrentPath(keyPath)) {
+        result[key] = mergeFieldsDeep(origin[key], patch?.[key], includePaths, keyPath)
+      } else if (patch && key in patch && !isEqual(origin[key], patch[key])) {
+        const pathStr = keyPath.join('.')
+        console.warn(
+          `Warning: Field "${pathStr}" is not included but modified. Original value kept.`
+        )
+      }
+    }
+
+    // 处理新增键
+    if (isPlainObject(patch)) {
+      for (const key in patch) {
+        if (!(key in origin)) {
+          result[key] = patch[key]
+        }
+      }
+    }
+
+    return result
+  }
+
+  return origin
+}
+
+/**
+ * 检查路径是否在通配符模式的匹配范围内
+ * @param currentPath 当前路径
+ * @param wildcardPattern 通配符模式
+ * @returns 是否在匹配范围内
+ */
+function isPathUnderWildcardPattern(
+  currentPath: (string | number)[],
+  wildcardPattern: (string | number | null)[]
+): boolean {
+  // 如果模式中没有 **，则不匹配
+  if (!wildcardPattern.includes('**')) {
+    return false
+  }
+
+  // 使用 isPathMatch 来检查是否匹配
+  return isPathMatch(currentPath, wildcardPattern)
+}
+
+/**
+ * 深度合并对象，但排除指定路径的字段（内部实现）, 目标对象中没有的字段会合并
+ * 当遇到原始对象中存在、被排除且值不同的字段时，会发出警告
+ * @param origin 原始对象
+ * @param patch 补丁对象
+ * @param paths 解析后的忽略路径数组
+ * @param depth 当前递归深度
+ * @param currentPath 当前路径（用于警告信息）
+ * @returns 合并后的新对象
+ */
+function omitMergeFieldsDeep(
+  origin: any,
+  patch: any,
+  paths: (string | number | null)[][],
+  depth = 0,
+  currentPath: (string | number)[] = []
+): any {
+  // 处理通配符路径，展开为具体路径
+  const wildcardPaths = paths.filter(path => path.includes('**'))
+  const normalPaths = paths.filter(path => !path.includes('**'))
+
+  let expandedPaths: (string | number | null)[][] = [...normalPaths]
+
+  // 展开通配符路径
+  wildcardPaths.forEach(wildcardPath => {
+    const matchingPaths = collectMatchingPaths(origin, wildcardPath)
+    expandedPaths.push(...matchingPaths)
+  })
+
+  // 检查是否有完全匹配的排除路径
+  const fullMatchPaths = expandedPaths.filter(p => p.length === depth)
+  if (fullMatchPaths.length > 0) {
+    // 只有当值不同时才发出警告
+    if (origin !== undefined && origin !== null && patch !== undefined && !isEqual(origin, patch)) {
+      const pathStr = currentPath.join('.')
+      console.warn(
+        `Warning: Field "${pathStr}" is excluded but present in patch with different value. It will be ignored.`
+      )
+    }
+    return origin // 完全匹配排除路径，直接返回原始值
+  }
+
+  // 基础类型或空值处理
+  if (origin === null || origin === undefined || typeof origin !== 'object') {
+    return patch !== undefined ? patch : origin
+  }
+
+  // 数组处理
+  if (Array.isArray(origin)) {
+    const result = origin.slice() // 创建原始数组的浅拷贝
+
+    // 1. 处理现有元素
+    for (let i = 0; i < result.length; i++) {
+      // 收集匹配当前索引的路径
+      const matchedPaths = expandedPaths.filter(p => {
+        if (p.length <= depth) return false
+        const key = p[depth]
+        return key === null || key === i
+      })
+
+      const patchItem = Array.isArray(patch) ? patch[i] : undefined
+
+      if (matchedPaths.length > 0) {
+        // 递归处理子路径
+        result[i] = omitMergeFieldsDeep(
+          result[i],
+          patchItem,
+          paths, // 使用原始路径，不是展开后的
+          depth + 1,
+          [...currentPath, i]
+        )
+      } else if (patchItem !== undefined) {
+        // 无忽略路径时直接应用补丁
+        result[i] = patchItem
+      }
+    }
+
+    // 2. 处理新增元素
+    if (Array.isArray(patch) && patch.length > origin.length) {
+      for (let i = origin.length; i < patch.length; i++) {
+        // 收集匹配当前索引的路径
+        const matchedPaths = expandedPaths.filter(p => {
+          if (p.length <= depth) return false
+          const key = p[depth]
+          return key === null || key === i
+        })
+
+        // 检查是否需要完全忽略该元素
+        const hasFullIgnore = matchedPaths.some(p => p.length === depth + 1)
+        if (!hasFullIgnore) {
+          // 递归处理子路径或直接添加
+          result.push(patch[i])
+        }
+      }
+    }
+
+    return result
+  }
+
+  // 普通对象处理
+  if (isPlainObject(origin)) {
+    const result: Record<string, any> = { ...origin }
+
+    // 1. 合并原始对象中存在的键
+    for (const key in origin) {
+      // 收集匹配当前键的路径
+      const matchedPaths = expandedPaths.filter(p => {
+        if (p.length <= depth) return false
+        return p[depth] === key
+      })
+
+      const patchValue = patch?.[key]
+
+      if (matchedPaths.length > 0) {
+        // 递归处理子路径
+        result[key] = omitMergeFieldsDeep(
+          origin[key],
+          patchValue,
+          paths, // 使用原始路径，不是展开后的
+          depth + 1,
+          [...currentPath, key]
+        )
+      } else if (patchValue !== undefined) {
+        // 无忽略路径时直接应用补丁
+        result[key] = patchValue
+      }
+    }
+
+    // 2. 处理新增键
+    if (isPlainObject(patch)) {
+      for (const key in patch) {
+        if (!(key in origin)) {
+          // 收集匹配当前键的路径
+          const matchedPaths = expandedPaths.filter(p => {
+            if (p.length <= depth) return false
+            return p[depth] === key
+          })
+
+          // 检查是否需要完全忽略该键
+          const hasFullIgnore = matchedPaths.some(p => p.length === depth + 1)
+          if (!hasFullIgnore) {
+            // 直接添加新键
+            result[key] = patch[key]
+          }
+        }
+      }
+    }
+
+    return result
+  }
+
+  // 其他对象类型直接返回原始值
+  return origin
+}
+
+/**
+ * 根据路径合并补丁对象指定字段到原始对象的对外接口，目标对象中没有的字段会合并
+ * @param origin 原始对象
+ * @param patch 补丁对象
+ * @param pathStrings 需要合并的字段路径字符串数组
+ * @param exclude 是否排除 pathStrings 指定的字段，true 表示合并除这些字段外的所有字段，默认 false
+ * @returns 合并后的新对象
+ */
+export function mergeFieldsSuper(
+  origin: any,
+  patch: any,
+  pathStrings: string[],
+  exclude = false
+): any {
+  if (!origin || typeof origin !== 'object') return origin
+  if (!patch || typeof patch !== 'object') return origin
+  const parsedPaths = pathStrings.map(parsePath)
+  if (exclude) {
+    return omitMergeFieldsDeep(origin, patch, parsedPaths)
+  }
+  return mergeFieldsDeep(origin, patch, parsedPaths)
+}
+
+export interface Range {
+  start: number
+  end: number
+}
+
+type ReadonlyRange =
+  | { type: 'property'; start: number; end: number }
+  | { type: 'key' | 'value'; start: number; end: number }
+
+interface FindReadonlyFieldRangesOptions {
+  includeComma?: boolean
+  splitKeyValue?: boolean
+}
+
+/**
+ * 使用 jsonc-parser 解析并查找路径时，展开路径中通配符及 ** 为对应所有节点
+ */
+function expandPathWithWildcards(node: JsonNode, path: (string | number | null)[]): JsonNode[] {
+  if (!node || path.length === 0) return [node].filter(Boolean)
+
+  const [head, ...tail] = path
+
+  if (head === '**') {
+    // 处理 ** 通配符
+    const results: JsonNode[] = []
+
+    if (tail.length === 0) {
+      // ** 在末尾，收集所有子节点
+      collectAllNodes(node, results)
+      return results
+    }
+
+    // 递归查找匹配的节点
+    const findInNode = (currentNode: JsonNode, remainingPath: (string | number | null)[]): void => {
+      // 尝试在当前节点匹配剩余路径
+      const matched = expandPathWithWildcards(currentNode, remainingPath)
+      results.push(...matched)
+
+      // 递归搜索子节点
+      if (currentNode.children) {
+        currentNode.children.forEach(child => {
+          findInNode(child, remainingPath)
+        })
+      }
+    }
+
+    findInNode(node, tail)
+    return results
+  }
+
+  if (head === null) {
+    if (node.type === 'array' && node.children) {
+      return node.children.flatMap(child => expandPathWithWildcards(child, tail))
+    }
+    return []
+  }
+
+  if (typeof head === 'number') {
+    const target = findNodeAtLocation(node, [head])
+    if (!target) return []
+    return tail.length === 0 ? [target] : expandPathWithWildcards(target, tail)
+  }
+
+  const next = findNodeAtLocation(node, [head])
+  if (!next) return []
+  return tail.length === 0 ? [next] : expandPathWithWildcards(next, tail)
+}
+
+/**
+ * 收集节点及其所有子节点
+ */
+function collectAllNodes(node: JsonNode, results: JsonNode[]): void {
+  results.push(node)
+  if (node.children) {
+    node.children.forEach(child => collectAllNodes(child, results))
+  }
+}
+
+/**
+ * 查找指定字段路径对应的只读字段文本范围（包括属性名和属性值）
+ * @param jsonText 原始 JSON 字符串
+ * @param readonlyPaths 只读字段路径数组
+ * @param options 可选项：
+ *  - includeComma：是否包含字段后逗号（默认 true）
+ *  - splitKeyValue：是否拆分 key 和 value 范围（默认 false）
+ * @returns 只读字段在文本中的偏移范围数组
+ */
+export function findReadonlyFieldRanges(
+  jsonText: string,
+  readonlyPaths: string[],
+  options: FindReadonlyFieldRangesOptions = {}
+): ReadonlyRange[] {
+  console.debug('findReadonlyFieldRanges', jsonText, readonlyPaths, options)
+
+  const { includeComma = true, splitKeyValue = false } = options
+  const root = parseTree(jsonText)
+  if (!root) return []
+
+  const ranges: ReadonlyRange[] = []
+
+  for (const rawPath of readonlyPaths) {
+    const path = parsePath(rawPath)
+    const targetNodes = expandPathWithWildcards(root, path)
+
+    if (!targetNodes.length) {
+      console.warn(`Path "${rawPath}" not found in JSON.`)
+    }
+
+    for (const node of targetNodes) {
+      const propNode = node.parent
+      if (propNode?.type === 'property') {
+        const keyNode = propNode.children?.[0]
+        const valueNode = propNode.children?.[1]
+
+        if (!keyNode || !valueNode) continue
+
+        if (splitKeyValue) {
+          ranges.push({ type: 'key', start: keyNode.offset, end: keyNode.offset + keyNode.length })
+          ranges.push({
+            type: 'value',
+            start: valueNode.offset,
+            end: valueNode.offset + valueNode.length,
+          })
+        } else {
+          let end = propNode.offset + propNode.length
+          if (includeComma) {
+            const afterProp = jsonText.slice(end)
+            const commaMatch = afterProp.match(/^\s*,/)
+            if (commaMatch) {
+              end += commaMatch[0].length
+            }
+          }
+          ranges.push({ type: 'property', start: propNode.offset, end })
+        }
+      }
+    }
+  }
+
+  return ranges
+}
+
+/**
+ * 判断两个 JSON 字符串中指定路径的字段值是否发生变化（忽略格式差异）
+ * 修改规则：
+ * - 前提是路径在 old 中存在，才判断是否变更
+ * - 如果 old 和 new 中都没有该路径 → 未变
+ * - 如果都存在且值相同 → 未变
+ * - 否则属于变更
+ * @param prev 上一次合法的 JSON 字符串
+ * @param next 当前待检查的 JSON 字符串
+ * @param readonlyPaths 只读字段路径（支持通配符）
+ * @returns 是否只读字段值发生变化
+ */
+export function isReadonlyValueChanged(
+  prev: string,
+  next: string,
+  readonlyPaths: string[]
+): boolean {
+  JSON.parse(next) && JSON.parse(prev)
+  const oldRoot = parseTree(prev)
+  const newRoot = parseTree(next)
+  if (!oldRoot || !newRoot) return false
+
+  for (const rawPath of readonlyPaths) {
+    const path = parsePath(rawPath)
+    const oldNodes = expandPathWithWildcards(oldRoot, path)
+    const newNodes = expandPathWithWildcards(newRoot, path)
+
+    for (let i = 0; i < oldNodes.length; i++) {
+      const oldVal = oldNodes[i]?.value
+
+      // 规则前提：如果 old 中存在该路径才判断
+      if (oldVal === undefined) continue
+
+      const newVal = newNodes[i]?.value
+
+      const bothMissing = oldVal === undefined && newVal === undefined
+      const bothEqual = isEqual(oldVal, newVal)
+      console.debug(
+        `Checking path "${rawPath}": old value = ${oldVal}, new value = ${newVal}, bothMissing = ${bothMissing}, bothEqual = ${bothEqual}, i = ${i}, newNodes = ${newNodes}`
+      )
+
+      if (!bothMissing && !bothEqual) {
+        return true
+      }
+    }
+  }
+
+  return false
+}
+
+/**
+ * 判断两个值是否相等，处理 Vue 响应式和 NaN 情况
+ * @param a 第一个值
+ * @param b 第二个值
+ * @returns 如果相等返回 true，否则返回 false
+ */
+export function isEqual(a: any, b: any): boolean {
+  if (isRef(a)) a = unref(a)
+  if (isReactive(a)) a = toRaw(a)
+
+  if (isRef(b)) b = unref(b)
+  if (isReactive(b)) b = toRaw(b)
+
+  if (Number.isNaN(a) && Number.isNaN(b)) return true
+
+  return lodashIsEqual(a, b)
+}
+
+/**
+ * 深拷贝一个对象或数组（不支持函数、循环引用等复杂情况）
+ * @param obj 需要拷贝的对象或数组
+ * @returns 拷贝后的新对象或数组
+ */
+export function deepClone<T>(obj: T): T {
+  return JSON.parse(JSON.stringify(obj))
+}
+
+/**
+ * 收集对象中所有的路径
+ * @param obj 目标对象
+ * @param currentPath 当前路径
+ * @returns 所有路径的数组
+ */
+function collectAllPaths(obj: any, currentPath: (string | number)[] = []): string[] {
+  const results: string[] = []
+
+  if (currentPath.length > 0) {
+    // 将路径转换为字符串，数组索引用 [] 包围
+    const pathStr = currentPath
+      .map((segment, index) => {
+        if (typeof segment === 'number') {
+          // 数组索引用 [] 包围
+          return `[${segment}]`
+        } else {
+          // 对象属性名，如果不是第一个则添加点号
+          return index === 0 ? segment : `.${segment}`
+        }
+      })
+      .join('')
+    results.push(pathStr)
+  }
+
+  if (obj === null || obj === undefined || typeof obj !== 'object') {
+    return results
+  }
+
+  if (Array.isArray(obj)) {
+    obj.forEach((item, index) => {
+      results.push(...collectAllPaths(item, [...currentPath, index]))
+    })
+  } else if (isPlainObject(obj)) {
+    Object.keys(obj).forEach(key => {
+      results.push(...collectAllPaths(obj[key], [...currentPath, key]))
+    })
+  }
+
+  return results.filter(path => path.length > 0) // 过滤掉空路径
+}
+
+/**
+ * 解析新格式的路径（如 "hobbies[0]" 或 "profile.skills[1]"）
+ * @param path 路径字符串
+ * @returns 解析后的路径数组
+ */
+function parseNewPathFormat(path: string): (string | number)[] {
+  const parts: (string | number)[] = []
+  let current = ''
+  let i = 0
+
+  while (i < path.length) {
+    const char = path[i]
+
+    if (char === '.') {
+      // 遇到点号，保存当前部分
+      if (current) {
+        parts.push(current)
+        current = ''
+      }
+    } else if (char === '[') {
+      // 遇到数组索引开始
+      if (current) {
+        parts.push(current)
+        current = ''
+      }
+
+      // 提取数组索引
+      i++ // 跳过 [
+      let indexStr = ''
+      while (i < path.length && path[i] !== ']') {
+        indexStr += path[i]
+        i++
+      }
+
+      if (indexStr && !isNaN(Number(indexStr))) {
+        parts.push(Number(indexStr))
+      }
+      // i 现在指向 ]，会在循环末尾自动 +1
+    } else {
+      current += char
+    }
+
+    i++
+  }
+
+  // 添加最后一部分
+  if (current) {
+    parts.push(current)
+  }
+
+  return parts
+}
+
+/**
+ * 获取指定路径的值（支持新的路径格式）
+ * @param obj 目标对象
+ * @param path 路径字符串（如 "hobbies[0]" 或 "profile.skills[1]"）
+ * @returns 路径对应的值，如果路径不存在返回 undefined
+ */
+function getValueByPath(obj: any, path: string): any {
+  // 解析新格式的路径
+  const pathParts = parseNewPathFormat(path)
+  let current = obj
+
+  for (const part of pathParts) {
+    if (current === null || current === undefined) {
+      return undefined
+    }
+
+    current = current[part]
+  }
+
+  return current
+}
+
+/**
+ * 路径比较结果接口
+ */
+export interface PathDiffResult {
+  /** 交集：两个对象都有的路径 */
+  intersection: string[]
+  /** 差集：只在 a 中存在的路径 */
+  differenceA: string[]
+  /** 差集：只在 b 中存在的路径 */
+  differenceB: string[]
+  /** 并集：两个对象所有的路径 */
+  union: string[]
+}
+
+/**
+ * 比较两个对象的路径差异
+ * @param objA 对象 A
+ * @param objB 对象 B
+ * @returns 路径比较结果
+ */
+export function diffPaths(objA: any, objB: any): PathDiffResult {
+  const pathsA = new Set(collectAllPaths(objA))
+  const pathsB = new Set(collectAllPaths(objB))
+
+  const intersection: string[] = []
+  const differenceA: string[] = []
+  const differenceB: string[] = []
+  const union = new Set<string>()
+
+  // 处理 A 中的路径
+  pathsA.forEach(path => {
+    union.add(path)
+    if (pathsB.has(path)) {
+      intersection.push(path)
+    } else {
+      differenceA.push(path)
+    }
+  })
+
+  // 处理 B 中的路径
+  pathsB.forEach(path => {
+    union.add(path)
+    if (!pathsA.has(path)) {
+      differenceB.push(path)
+    }
+  })
+
+  return {
+    intersection: intersection.sort(),
+    differenceA: differenceA.sort(),
+    differenceB: differenceB.sort(),
+    union: Array.from(union).sort(),
+  }
+}
+
+/**
+ * 根据路径差异结果生成新的 JSON 对象
+ * @param objA 对象 A
+ * @param objB 对象 B
+ * @param pathType 路径类型：'intersection' | 'differenceA' | 'differenceB' | 'union'
+ * @param sourceObj 数据源对象：'A' | 'B' | 'both'，当为 'both' 时，B 的值会覆盖 A 的值
+ * @returns 根据指定路径类型生成的新对象
+ */
+export function generateJsonFromPathDiff(
+  objA: any,
+  objB: any,
+  pathType: 'intersection' | 'differenceA' | 'differenceB' | 'union',
+  sourceObj: 'A' | 'B' | 'both' = 'both'
+): any {
+  const pathDiff = diffPaths(objA, objB)
+  const targetPaths = pathDiff[pathType]
+
+  if (targetPaths.length === 0) {
+    return {}
+  }
+
+  let sourceData: any
+  if (sourceObj === 'A') {
+    sourceData = objA
+  } else if (sourceObj === 'B') {
+    sourceData = objB
+  } else {
+    // 'both' - 合并两个对象，B 覆盖 A
+    sourceData = deepClone(objA)
+    // 使用 mergeFieldsSuper 合并所有字段
+    const allPaths = Array.from(new Set([...collectAllPaths(objA), ...collectAllPaths(objB)]))
+    sourceData = mergeFieldsSuper(sourceData, objB, allPaths)
+  }
+
+  return pickFieldsSuper(sourceData, targetPaths)
+}
+
+/**
+ * 值差异结果接口
+ */
+export interface ValueDiffResult {
+  /** 有差异的路径列表 */
+  changedPaths: string[]
+  /** 差异的完整对象（包含所有有差异的字段） */
+  changedObject: any
+  /** 只有新增的路径（B 中有但 A 中没有） */
+  addedPaths: string[]
+  /** 只有删除的路径（A 中有但 B 中没有） */
+  removedPaths: string[]
+  /** 值发生变化的路径（A 和 B 中都有但值不同） */
+  modifiedPaths: string[]
+}
+
+/**
+ * 比较两个对象的值差异
+ * @param objA 对象 A（基准对象）
+ * @param objB 对象 B（比较对象）
+ * @param options 配置选项
+ * @returns 值差异结果
+ */
+export function diffValues(
+  objA: any,
+  objB: any,
+  options: {
+    /** 是否包含新增的字段 */
+    includeAdded?: boolean
+    /** 是否包含删除的字段 */
+    includeRemoved?: boolean
+    /** 是否包含修改的字段 */
+    includeModified?: boolean
+  } = {}
+): ValueDiffResult {
+  const { includeAdded = true, includeRemoved = true, includeModified = true } = options
+
+  const pathsA = new Set(collectAllPaths(objA))
+  const pathsB = new Set(collectAllPaths(objB))
+
+  const addedPaths: string[] = []
+  const removedPaths: string[] = []
+  const modifiedPaths: string[] = []
+  const changedPaths: string[] = []
+
+  // 检查新增的路径（B 中有但 A 中没有）
+  if (includeAdded) {
+    pathsB.forEach(path => {
+      if (!pathsA.has(path)) {
+        addedPaths.push(path)
+        changedPaths.push(path)
+      }
+    })
+  }
+
+  // 检查删除的路径（A 中有但 B 中没有）
+  if (includeRemoved) {
+    pathsA.forEach(path => {
+      if (!pathsB.has(path)) {
+        removedPaths.push(path)
+        changedPaths.push(path)
+      }
+    })
+  }
+
+  // 检查修改的路径（A 和 B 中都有但值不同）
+  if (includeModified) {
+    pathsA.forEach(path => {
+      if (pathsB.has(path)) {
+        const valueA = getValueByPath(objA, path)
+        const valueB = getValueByPath(objB, path)
+
+        if (!isEqual(valueA, valueB)) {
+          modifiedPaths.push(path)
+          changedPaths.push(path)
+        }
+      }
+    })
+  }
+
+  // 生成包含所有差异字段的对象
+  const changedObject = changedPaths.length > 0 ? pickFieldsSuper(objB, changedPaths) : {}
+
+  return {
+    changedPaths: changedPaths.sort(),
+    changedObject,
+    addedPaths: addedPaths.sort(),
+    removedPaths: removedPaths.sort(),
+    modifiedPaths: modifiedPaths.sort(),
+  }
+}
+
+/**
+ * 生成值差异的 JSON 对象
+ * @param objA 对象 A（基准对象）
+ * @param objB 对象 B（比较对象）
+ * @param outputType 输出类型：'paths' | 'object'
+ * @param options 配置选项
+ * @returns 根据配置生成的差异结果
+ */
+export function generateValueDiffJson(
+  objA: any,
+  objB: any,
+  outputType: 'paths' | 'object' = 'object',
+  options: {
+    includeAdded?: boolean
+    includeRemoved?: boolean
+    includeModified?: boolean
+  } = {}
+): string[] | any {
+  const diffResult = diffValues(objA, objB, options)
+
+  if (outputType === 'paths') {
+    return diffResult.changedPaths
+  } else {
+    return diffResult.changedObject
+  }
+}

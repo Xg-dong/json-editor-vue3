@@ -1,0 +1,33 @@
+# NPM 发布忽略文件
+src/
+test/
+.github/
+.vscode/
+.idea/
+
+# 配置文件
+tsconfig.json
+vitest.config.ts
+vite.config.ts
+.eslintrc.js
+.prettierrc.json
+.gitignore
+
+# 开发文件
+*.test.ts
+*.spec.ts
+*.test.js
+*.spec.js
+
+# 文档和示例（如果不想包含在 npm 包中）
+# docs/
+# examples/
+
+# 临时文件
+*.log
+*.tmp
+.cache/
+coverage/
+
+# 源码映射（如果不想发布）
+# *.map
