@@ -1,5 +1,5 @@
 {
-    "name": "json-editor-vue3",
+    "name": "@idss-d/json-editor-vue3",
     "version": "1.0.0",
     "type": "module",
     "description": "基于 Element Plus、Vue 3、Monaco Editor 的 JSON 编辑器组件，提供强大的字段路径裁剪、合并、比较等功能",
@@ -17,17 +17,17 @@
         "wildcard",
         "json-editor"
     ],
-    "homepage": "https://github.com/bx3mdyy/json-editor#readme",
+    "homepage": "https://github.com/Xg-dong/json-editor-vue3#readme",
     "bugs": {
-        "url": "https://github.com/bx3mdyy/json-editor/issues"
+        "url": "https://github.com/Xg-dong/json-editor-vue3/issues"
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/bx3mdyy/json-editor.git"
+        "url": "git+https://github.com/Xg-dong/json-editor-vue3.git"
     },
     "license": "MIT",
     "author": {
-        "name": "bx3mdyy",
+        "name": "菜鸟东子",
         "email": "your-email@example.com"
     },
     "main": "dist/index.cjs.js",
@@ -35,6 +35,7 @@
     "types": "dist/index.d.ts",
     "files": [
         "dist",
+        "docs",
         "README.md",
         "LICENSE"
     ],
@@ -54,25 +55,43 @@
             "import": "./dist/JsonEditor.esm.js",
             "require": "./dist/JsonEditor.cjs.js"
         },
-        "./JsonEditor.css": "./dist/style.css"
+        "./JsonEditor.css": "./dist/JsonEditor.css"
+    },
+    "publishConfig": {
+        "access": "public"
     },
     "scripts": {
-        "build": "npm run clean && vite build",
+        "build": "node scripts/build.js",
+        "build:prod": "cross-env NODE_ENV=production vite build --config vite.config.prod.ts --mode production",
+        "build:dev": "vite build --mode development",
+        "build:analyze": "npm run build:prod && npx vite-bundle-analyzer dist",
         "clean": "rimraf dist",
         "dev": "vite build --watch",
+        "preview": "npm run build && npm run serve:examples",
+        "serve:examples": "node scripts/build-and-install.js && cd examples && npm run dev",
         "test": "vitest",
         "test:ui": "vitest --ui",
         "test:run": "vitest run",
         "test:coverage": "vitest run --coverage",
+        "test:watch": "vitest --watch",
         "lint": "eslint src --ext .ts,.vue --fix",
         "lint:check": "eslint src --ext .ts,.vue",
         "format": "prettier --write \"src/**/*.{ts,vue,js,json}\"",
         "format:check": "prettier --check \"src/**/*.{ts,vue,js,json}\"",
         "type-check": "vue-tsc --noEmit",
-        "prepublishOnly": "npm run test:run && npm run build",
-        "release": "chmod +x scripts/release.sh && ./scripts/release.sh",
-        "release:dry": "chmod +x scripts/release.sh && ./scripts/release.sh --dry-run",
-        "release:beta": "npm run test:run && npm run build && npm publish --tag beta"
+        "verify": "node scripts/build.js verify",
+        "examples": "chmod +x scripts/run-examples.sh && ./scripts/run-examples.sh",
+        "pack": "npm run build && npm pack",
+        "pack:test": "npm run pack && chmod +x scripts/test-local-install.sh && ./scripts/test-local-install.sh",
+        "check": "node scripts/release.js check",
+        "version:patch": "node scripts/release.js version patch",
+        "version:minor": "node scripts/release.js version minor",
+        "version:major": "node scripts/release.js version major",
+        "release:patch": "node scripts/release.js release patch",
+        "release:minor": "node scripts/release.js release minor",
+        "release:major": "node scripts/release.js release major",
+        "publish:npm": "node scripts/release.js publish",
+        "publish:beta": "node scripts/release.js beta"
     },
     "dependencies": {
         "jsonc-parser": "^3.2.0",
@@ -80,7 +99,7 @@
     },
     "peerDependencies": {
         "element-plus": "^2.0.0",
-        "monaco-editor": "^0.44.0",
+        "monaco-editor": ">=0.44.0",
         "vue": "^3.0.0"
     },
     "peerDependenciesMeta": {
@@ -97,7 +116,6 @@
         "@types/jsdom": "^21.1.7",
         "@types/lodash": "^4.14.202",
         "@types/node": "^20.19.9",
-        "@types/vue": "^1.0.31",
         "@typescript-eslint/eslint-plugin": "^6.15.0",
         "@typescript-eslint/parser": "^6.15.0",
         "@vitejs/plugin-vue": "^5.2.1",
@@ -105,6 +123,7 @@
         "@vue/test-utils": "^2.4.6",
         "@vue/tsconfig": "^0.5.1",
         "c8": "^8.0.1",
+        "cross-env": "^10.0.0",
         "element-plus": "^2.4.4",
         "eslint": "^8.56.0",
         "eslint-config-prettier": "^9.1.0",
@@ -113,9 +132,11 @@
         "jsdom": "^26.1.0",
         "monaco-editor": "^0.44.0",
         "prettier": "^3.1.1",
-        "rimraf": "^5.0.5",
+        "rimraf": "^5.0.10",
+        "terser": "^5.43.1",
         "typescript": "^5.3.3",
         "vite": "^5.4.19",
+        "vite-bundle-analyzer": "^1.2.0",
         "vite-plugin-dts": "^4.5.4",
         "vitest": "^1.1.0",
         "vue": "^3.5.18",

@@ -17,6 +17,7 @@ export interface JsonItem {
   showFullscreenButton?: boolean // 是否显示全屏按钮
   autoFormat?: boolean // 是否自动格式化
   elFormItem?: any // Element Plus 表单项实例
+  fixedHeight?: boolean // 强制固定高度模式，防止高度失控
 
   // 兼容旧版本的属性
   backgroundColor?: string // 编辑器背景色

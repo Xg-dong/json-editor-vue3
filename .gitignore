@@ -54,3 +54,5 @@ Thumbs.db
 
 # Vitest UI
 .vitest/
+
+*.tgz

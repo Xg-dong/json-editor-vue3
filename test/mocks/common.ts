@@ -79,8 +79,20 @@ export const createElementPlusMock = () => ({
     template: '<div class="el-tooltip"><slot /></div>',
     props: ['content', 'placement'],
   },
-  FullScreen: 'fullscreen',
-  DocumentCopy: 'document-copy',
+  ElMessage: {
+    warning: vi.fn(),
+    error: vi.fn(),
+    success: vi.fn(),
+    info: vi.fn(),
+  },
+  FullScreen: {
+    name: 'FullScreen',
+    template: '<svg><path d="fullscreen-path"/></svg>',
+  },
+  DocumentCopy: {
+    name: 'DocumentCopy',
+    template: '<svg><path d="document-copy-path"/></svg>',
+  },
 })
 
 // 应用 Monaco mock

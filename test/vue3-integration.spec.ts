@@ -82,7 +82,7 @@ describe('Vue 3 集成测试', () => {
 
     // 等待异步更新
     await new Promise(resolve => setTimeout(resolve, 20))
-    await nextTick()
+    await nextTick(() => {})
 
     expect(container.textContent).toBe('5')
   })
@@ -107,7 +107,7 @@ describe('Vue 3 集成测试', () => {
     expect(button).toBeTruthy()
 
     button?.click()
-    await nextTick()
+    await nextTick(() => {})
 
     expect(clicked).toBe(true)
   })
@@ -186,7 +186,7 @@ describe('Vue 3 集成测试', () => {
     // 模拟用户输入
     input.value = 'changed'
     input.dispatchEvent(new Event('input', { bubbles: true }))
-    await nextTick()
+    await nextTick(() => {})
 
     expect(input.value).toBe('changed')
   })
@@ -200,7 +200,7 @@ describe('Vue 3 集成测试', () => {
       setup() {
         const count = ref(0)
 
-        watch(count, newVal => {
+        watch(count, (newVal: number) => {
           watcherCalled = true
           watchedValue = newVal.toString()
         })
@@ -215,7 +215,7 @@ describe('Vue 3 集成测试', () => {
     // 改变值触发 watcher
     const component = app._instance
     component.setupState.count = 5
-    await nextTick()
+    await nextTick(() => {})
 
     expect(watcherCalled).toBe(true)
     expect(watchedValue).toBe('5')
