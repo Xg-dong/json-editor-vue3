@@ -95,7 +95,7 @@ function updateVersion(versionType) {
     verifyBuild();
 
     // 提交更改
-    exec('git add package.json package-lock.json dist/');
+    exec('git add package.json');
     exec(`git commit -m "chore: bump version to ${newVersion}"`);
     exec(`git tag -a "v${newVersion}" -m "Release v${newVersion}"`);
 
