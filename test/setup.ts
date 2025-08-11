@@ -13,6 +13,15 @@ expect.extend(matchers)
 // 导入 Monaco Editor mock
 import './mocks/monaco'
 
+// Mock IntersectionObserver
+global.IntersectionObserver = vi.fn().mockImplementation(callback => ({
+  observe: vi.fn(),
+  unobserve: vi.fn(),
+  disconnect: vi.fn(),
+  // 立即触发回调，表示元素可见
+  trigger: () => callback([{ isIntersecting: true }]),
+}))
+
 // Mock localStorage
 const localStorageMock: Storage = {
   store: {} as Record<string, string>,

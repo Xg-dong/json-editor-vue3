@@ -82,8 +82,14 @@ const mockElementPlus = {
     template: '<div class="el-tooltip"><slot /></div>',
     props: ['content', 'placement'],
   },
-  FullScreen: 'fullscreen',
-  DocumentCopy: 'document-copy',
+  FullScreen: {
+    name: 'FullScreen',
+    template: '<svg><path d="fullscreen-path"/></svg>',
+  },
+  DocumentCopy: {
+    name: 'DocumentCopy',
+    template: '<svg><path d="document-copy-path"/></svg>',
+  },
 }
 
 describe('JsonEditor 基础功能测试', () => {
@@ -185,7 +191,7 @@ describe('JsonEditor 基础功能测试', () => {
     expect(typeof vm.setValue).toBe('function')
   })
 
-  it('validate() 方法应该返回布尔值', () => {
+  it('validate() 方法应该返回布尔值', async () => {
     const wrapper = mount(JsonEditor, {
       props: {
         modelValue: { test: 'value' },
@@ -199,7 +205,20 @@ describe('JsonEditor 基础功能测试', () => {
       },
     })
 
+    // 等待组件挂载完成
+    await wrapper.vm.$nextTick()
+
     const vm = wrapper.vm as any
+
+    // 模拟编辑器已初始化
+    if (!vm.editor) {
+      vm.editor = {
+        getValue: () => '{"test": "value"}',
+        setValue: vi.fn(),
+        dispose: vi.fn(),
+      }
+    }
+
     const result = vm.validate()
 
     expect(typeof result).toBe('boolean')
