@@ -7,14 +7,13 @@
         "dev": "vite",
         "build": "vue-tsc && vite build",
         "preview": "vite preview",
-        "install-local-package": "npm install ../idss-d-json-editor-vue3-1.0.0.tgz",
-        "install-local": "./install-local.sh",
-        "install-local:clean": "./install-local.sh --clean",
+        "install-package": "./install-local.sh",
+        "install-package:clean": "./install-local.sh --clean",
         "clean": "rm -rf node_modules package-lock.json && npm install",
-        "setup": "npm run install-local-package && npm run dev"
+        "setup": "npm run install-package && npm run dev"
     },
     "dependencies": {
-        "@idss-d/json-editor-vue3": "file:../idss-d-json-editor-vue3-1.0.0.tgz",
+        "@idss-d/json-editor-vue3": "file:../test/idss-d-json-editor-vue3.tgz",
         "vue": "^3.5.18",
         "vue-router": "^4.4.5"
     },

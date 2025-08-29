@@ -14,7 +14,7 @@ const __dirname = dirname(__filename)
 const rootDir = join(__dirname, '..')
 const examplesDir = join(rootDir, 'examples')
 const nodeModulesDir = join(examplesDir, 'node_modules')
-const packageDir = join(nodeModulesDir, '@dongzi', 'json-editor-vue3')
+const packageDir = join(nodeModulesDir, '@idss-d', 'json-editor-vue3')
 
 console.log('🚀 开始构建和安装 JSON Editor Vue3...')
 

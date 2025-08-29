@@ -37,7 +37,8 @@ case $choice in
             echo "❌ examples 目录不存在: $EXAMPLES_DIR"
             exit 1
         fi
-        
+        npm run build:test
+
         cd "$EXAMPLES_DIR"
         
         # 检查 package.json

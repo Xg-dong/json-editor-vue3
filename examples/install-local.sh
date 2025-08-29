@@ -15,7 +15,7 @@ if [ ! -f "package.json" ]; then
 fi
 
 # 检查本地包文件是否存在
-PACKAGE_FILE="../idss-d-json-editor-vue3-1.0.0.tgz"
+PACKAGE_FILE="../test/idss-d-json-editor-vue3.tgz"
 if [ ! -f "$PACKAGE_FILE" ]; then
     echo "❌ 错误: 未找到本地包文件 $PACKAGE_FILE"
     echo "请先在根目录运行 'npm run pack' 来生成包文件"
