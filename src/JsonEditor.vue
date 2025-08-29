@@ -951,6 +951,7 @@ defineExpose({
 }
 .json-editor .floating-toolbar {
   position: absolute;
+  top: 0;
   right: 10px;
   display: flex;
   backdrop-filter: blur(2px);
