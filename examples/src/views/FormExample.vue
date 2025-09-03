@@ -182,7 +182,7 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { JsonEditor } from '@idss-d/json-editor-vue3'
+import JsonEditor from '../../../src/JsonEditor.vue'
 import type { FormInstance, FormRules } from 'element-plus'
 
 // 表单引用

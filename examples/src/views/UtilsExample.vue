@@ -338,13 +338,13 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { JsonEditor } from '@idss-d/json-editor-vue3'
+import JsonEditor from '../../../src/JsonEditor.vue'
 import {
   pickFieldsSuper,
   mergeFieldsSuper,
   getValueByPath,
   collectAllPaths,
-} from '@idss-d/json-editor-vue3/utils'
+} from '../../../src/utils/index'
 import { ElMessage } from 'element-plus'
 import type { Ref } from 'vue'
 

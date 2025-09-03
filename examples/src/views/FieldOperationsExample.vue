@@ -238,8 +238,8 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { JsonEditor } from '@idss-d/json-editor-vue3'
-import { getValueByPath, collectAllPaths } from '@idss-d/json-editor-vue3/utils'
+import JsonEditor from '../../../src/JsonEditor.vue'
+import { getValueByPath, collectAllPaths } from '../../../src/utils/index'
 import { ElMessage } from 'element-plus'
 
 // 类型定义

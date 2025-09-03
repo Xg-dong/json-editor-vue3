@@ -278,9 +278,9 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { JsonEditor } from '@idss-d/json-editor-vue3'
+import JsonEditor from '../../../src/JsonEditor.vue'
 import { ElMessage } from 'element-plus'
-import { collectAllPaths } from '@idss-d/json-editor-vue3/utils'
+import { collectAllPaths } from '../../../src/utils/index'
 
 // 类型定义
 interface SampleDataItem {

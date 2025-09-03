@@ -171,7 +171,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { JsonEditor } from '@idss-d/json-editor-vue3'
+import JsonEditor from '../../../src/JsonEditor.vue'
 
 // 控制开关
 const showWidthErrorExample = ref(false)

@@ -154,7 +154,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { FullScreen } from '@element-plus/icons-vue'
-import { JsonEditor } from '@idss-d/json-editor-vue3'
+import JsonEditor from '../../../src/JsonEditor.vue'
 import { ElMessage } from 'element-plus'
 
 // 类型定义

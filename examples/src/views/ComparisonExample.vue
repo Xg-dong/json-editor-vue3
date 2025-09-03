@@ -300,13 +300,13 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { Search, Connection, RefreshLeft, TrendCharts } from '@element-plus/icons-vue'
-import { JsonEditor } from '@idss-d/json-editor-vue3'
+import JsonEditor from '../../../src/JsonEditor.vue'
 import {
   mergeFieldsSuper,
   getValueByPath,
   collectAllPaths,
   isEqual,
-} from '@idss-d/json-editor-vue3/utils'
+} from '../../../src/utils/index'
 import { ElMessage } from 'element-plus'
 
 // 类型定义

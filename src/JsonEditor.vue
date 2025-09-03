@@ -434,6 +434,9 @@ async function initializeEditor(): Promise<void> {
     return
   }
 
+  // 等待容器准备就绪
+  await nextTick()
+
   // 等待容器真正可见
   await waitForContainerVisible(editorContainer.value)
 
@@ -450,6 +453,12 @@ async function initializeEditor(): Promise<void> {
 
   // 获取实际尺寸
   const rect = container.getBoundingClientRect()
+  if (rect.width === 0 || rect.height === 0) {
+    // 容器还没有尺寸，延迟初始化
+    setTimeout(initializeEditor, 100)
+    return
+  }
+
   const width = Math.max(rect.width || 300, 200)
   const height = Math.max(rect.height || 150, 100)
 
@@ -472,27 +481,24 @@ async function initializeEditor(): Promise<void> {
       value: initialValue.value,
       language: 'json',
       theme: currentTheme.value,
-      automaticLayout: false,
-      minimap: { enabled: false },
-      scrollbar: {
-        vertical: 'auto',
-        horizontal: 'auto',
-        verticalScrollbarSize: 10,
-        horizontalScrollbarSize: 10,
-      },
       readOnly: isReadonly.value,
-      wordWrap: 'on',
-      formatOnPaste: props.autoFormat,
-      formatOnType: props.autoFormat,
+      automaticLayout: true,
+      minimap: { enabled: false },
       scrollBeyondLastLine: false,
-      dimension: {
-        width: Math.floor(width),
-        height: Math.floor(height),
-      },
-      renderWhitespace: 'none',
-      renderControlCharacters: false,
-      mouseWheelZoom: false,
-      contextmenu: false,
+      wordWrap: 'on',
+      lineNumbers: 'on',
+      glyphMargin: false,
+      folding: true,
+      lineDecorationsWidth: 10,
+      lineNumbersMinChars: 3,
+      renderLineHighlight: 'line',
+      contextmenu: true,
+      selectOnLineNumbers: true,
+      roundedSelection: false,
+      cursorStyle: 'line',
+      cursorBlinking: 'blink',
+      fontSize: 14,
+      fontFamily: '"Monaco", "Menlo", "Ubuntu Mono", "Consolas", monospace',
     })
 
     // 立即布局
@@ -922,7 +928,6 @@ defineExpose({
     </div>
   </div>
 </template>
-
 <style>
 .json-editor {
   position: relative;
@@ -957,7 +962,7 @@ defineExpose({
   backdrop-filter: blur(2px);
   background-color: rgba(255, 255, 255, 0);
   pointer-events: none;
-  z-index: 10;
+  z-index: 1001;
 }
 .json-editor .floating-toolbar .el-button {
   font-size: 18px;
@@ -1016,27 +1021,6 @@ defineExpose({
   height: 100% !important;
 }
 .json-editor .monaco-editor .monaco-scrollable-element {
-  max-width: 100% !important;
-  max-height: 100% !important;
-}
-/* 特别针对 lines-content 元素 */
-.json-editor .monaco-editor .lines-content {
-  max-width: 100% !important;
-  max-height: 100% !important;
-  width: 100% !important;
-  height: 100% !important;
-}
-/* 防止其他可能的异常元素 */
-.json-editor .monaco-editor .view-lines {
-  max-width: 100% !important;
-  max-height: 100% !important;
-}
-.json-editor .monaco-editor .monaco-editor-background {
-  max-width: 100% !important;
-  max-height: 100% !important;
-}
-/* 强制限制所有 monaco 相关元素 */
-.json-editor [class*='monaco'] {
   max-width: 100% !important;
   max-height: 100% !important;
 }
