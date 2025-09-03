@@ -1,6 +1,6 @@
 {
     "name": "@idss-d/json-editor-vue3",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "type": "module",
     "description": "基于 Element Plus、Vue 3、Monaco Editor 的 JSON 编辑器组件，提供强大的字段路径裁剪、合并、比较等功能",
     "keywords": [
